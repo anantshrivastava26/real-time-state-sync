@@ -63,7 +63,7 @@ export function App() {
           <div className="presence-head"><div><p className="eyebrow">IN THE ROOM</p><h2>{online} <span>connected</span></h2></div><span className="count">{peers.length.toString().padStart(2, "0")}</span></div>
           <div className="peer-list">{peers.map((peer) => <div className="peer" key={peer.slot}><span className={peer.online ? "presence-dot" : "presence-dot away"} style={{ backgroundColor: colorForPeer(peer) }}></span><span className="peer-name">{peer.name}{peer.clientId === storedId ? " (you)" : ""}</span><span className="peer-state">{peer.online ? "LIVE" : "AWAY"}</span></div>)}</div>
           <div className="reaction-panel"><p className="eyebrow">SEND A SIGNAL</p><div className="reaction-grid">{REACTION_KINDS.map((kind, index) => <button type="button" className={selectedReaction === index ? "reaction selected" : "reaction"} key={kind} onClick={() => chooseReaction(index)} aria-label={kind} title={kind}><svg viewBox="0 0 24 24"><path d={reactionIcons[kind]} /></svg></button>)}</div></div>
-          {roomId && <button type="button" className="leave-button" style={{ width: "100%", marginTop: 22, padding: "11px 14px", border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", font: "11px 'DM Mono', monospace", letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }} onClick={leave}>Exit watch party</button>}
+          {roomId && <button type="button" className="leave-button" onClick={leave}>Exit watch party</button>}
           {error && <p className="error">{error}</p>}
         </aside>
       </section>
