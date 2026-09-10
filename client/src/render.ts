@@ -57,7 +57,13 @@ export class SyncRenderer {
     for (const [id, burst] of this.bursts) {
       const age = now - burst.born; if (age > 1500) { this.bursts.delete(id); continue; }
       const progress = age / 1500; const scale = 1 + progress * 0.7; const alpha = 1 - progress;
-      ctx.save(); ctx.translate(burst.x * width, burst.y * height); ctx.scale(scale, scale); ctx.globalAlpha = alpha; ctx.strokeStyle = burst.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 22 + progress * 22, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = burst.color; ctx.fillText("", 0, 0); const path = new Path2D(reactionIcons[burst.kind] ?? reactionIcons.heart); ctx.translate(-12, -12); ctx.scale(1.1, 1.1); ctx.fill(path); ctx.restore();
+      ctx.save(); ctx.translate(burst.x * width, burst.y * height); ctx.scale(scale, scale); ctx.globalAlpha = alpha; ctx.strokeStyle = burst.color; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 22 + progress * 22, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = burst.color; ctx.translate(-12, -12); ctx.scale(1.1, 1.1);
+      try {
+        ctx.fill(new Path2D(reactionIcons[burst.kind] ?? reactionIcons.heart));
+      } catch {
+        ctx.beginPath(); ctx.arc(12, 12, 8, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
       if (burst.count > 1) { ctx.fillStyle = "#f4f1ea"; ctx.font = "700 12px ui-sans-serif"; ctx.fillText("x" + burst.count, burst.x * width + 22, burst.y * height - 20); }
     }
     ctx.fillStyle = "rgba(244, 241, 234, .42)"; ctx.font = "11px ui-sans-serif"; ctx.fillText("render delay " + this.clock.delay + "ms", 18, height - 18);
