@@ -11,7 +11,7 @@ import { createHash } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 
-const WS_GUID = "258EAFA5-E914-47DA-95CA-5AB0DC85B11F";
+const WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 export function computeAcceptKey(secWebSocketKey: string): string {
   return createHash("sha1").update(secWebSocketKey + WS_GUID).digest("base64");
