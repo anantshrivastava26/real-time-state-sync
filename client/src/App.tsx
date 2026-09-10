@@ -6,13 +6,14 @@ import { reactionIcons } from "./icons";
 import { SyncRenderer } from "./render";
 
 const roomFromUrl = new URLSearchParams(window.location.search).get("room") || "watch-party-42";
-const storedId = localStorage.getItem("pulse-client-id") || crypto.randomUUID();
-localStorage.setItem("pulse-client-id", storedId);
+const storedId = sessionStorage.getItem("pulse-client-id") || crypto.randomUUID();
+sessionStorage.setItem("pulse-client-id", storedId);
 
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<SyncRenderer | null>(null);
   const connectionRef = useRef<SyncConnection | null>(null);
+  const pointerRef = useRef({ x: 0.5, y: 0.5 });
   const [name, setName] = useState(() => localStorage.getItem("pulse-name") || "Guest");
   const [roomId, setRoomId] = useState(roomFromUrl);
   const [status, setStatus] = useState("connecting");
@@ -38,9 +39,32 @@ export function App() {
   }, [roomId]);
 
   function join(event: React.FormEvent) { event.preventDefault(); localStorage.setItem("pulse-name", name.trim() || "Guest"); setRoomId(roomId.trim() || "watch-party-42"); }
-  function move(event: React.PointerEvent<HTMLCanvasElement>) { const rect = event.currentTarget.getBoundingClientRect(); connectionRef.current?.sendCursor(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)), Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height))); }
-  function reactAt(event: React.MouseEvent<HTMLCanvasElement>) { const rect = event.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)); const kind = reactionKindFromIndex(selectedReaction); const id = storedId + "-local-" + Date.now(); rendererRef.current?.addLocalBurst(id, x, y, kind, "#ffbd59"); connectionRef.current?.sendReaction(x, y, selectedReaction); }
+  function sendReaction(x: number, y: number, kindIndex: number) { const kind = reactionKindFromIndex(kindIndex); const id = storedId + "-local-" + Date.now(); rendererRef.current?.addLocalBurst(id, x, y, kind, "#ffbd59"); connectionRef.current?.sendReaction(x, y, kindIndex); }
+  function move(event: React.PointerEvent<HTMLCanvasElement>) { const rect = event.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)); pointerRef.current = { x, y }; connectionRef.current?.sendCursor(x, y); }
+  function reactAt(event: React.MouseEvent<HTMLCanvasElement>) { const rect = event.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)); pointerRef.current = { x, y }; sendReaction(x, y, selectedReaction); }
+  function chooseReaction(index: number) { setSelectedReaction(index); sendReaction(pointerRef.current.x, pointerRef.current.y, index); }
   const online = peers.filter((peer) => peer.online).length;
 
-  return <main className="shell"><header className="topbar"><div className="brand"><span className="brand-mark">+</span><span>pulse room</span></div><div className="room-chip"><span className={status === "connected" ? "live-dot" : "live-dot muted"}></span>{status}<strong>/{roomId}</strong></div></header><section className="intro"><div><p className="eyebrow">LIVE SHARED SPACE</p><h1>Move together.<br /><em>Feel the room.</em></h1><p className="lede">A tiny, honest multiplayer canvas for the moments that happen between the big ones.</p></div><form className="join-form" onSubmit={join}><label>YOUR NAME<input value={name} maxLength={24} onChange={(event) => setName(event.target.value)} /></label><label>ROOM<input value={roomId} maxLength={64} onChange={(event) => setRoomId(event.target.value)} /></label><button type="submit">Join room <span>↗</span></button></form></section><section className="workspace"><div className="canvas-wrap"><canvas ref={canvasRef} onPointerMove={move} onClick={reactAt} aria-label="Shared cursor canvas" /><div className="canvas-note"><span>Move your cursor through the room</span><span>Click to send a reaction</span></div></div><aside className="presence"><div className="presence-head"><div><p className="eyebrow">IN THE ROOM</p><h2>{online} <span>connected</span></h2></div><span className="count">{peers.length.toString().padStart(2, "0")}</span></div><div className="peer-list">{peers.map((peer) => <div className="peer" key={peer.slot}><span className={peer.online ? "presence-dot" : "presence-dot away"}></span><span className="peer-name">{peer.name}{peer.clientId === storedId ? " (you)" : ""}</span><span className="peer-state">{peer.online ? "LIVE" : "AWAY"}</span></div>)}</div><div className="reaction-panel"><p className="eyebrow">SEND A SIGNAL</p><div className="reaction-grid">{REACTION_KINDS.map((kind, index) => <button className={selectedReaction === index ? "reaction selected" : "reaction"} key={kind} onClick={() => setSelectedReaction(index)} aria-label={kind} title={kind}><svg viewBox="0 0 24 24"><path d={reactionIcons[kind]} /></svg></button>)}</div></div>{error && <p className="error">{error}</p>}</aside></section><footer><span>RAW WEBSOCKET SYNC</span><span>20 Hz state tick · buffered interpolation · reconnect grace</span></footer></main>;
+  return (
+    <main className="shell">
+      <header className="topbar">
+        <div className="brand"><span className="brand-mark">+</span><span>pulse room</span></div>
+        <div className="room-chip"><span className={status === "connected" ? "live-dot" : "live-dot muted"}></span>{status}<strong>/{roomId}</strong></div>
+      </header>
+      <section className="intro">
+        <div><p className="eyebrow">LIVE SHARED SPACE</p><h1>Move together.<br /><em>Feel the room.</em></h1><p className="lede">A tiny, honest multiplayer canvas for the moments that happen between the big ones.</p></div>
+        <form className="join-form" onSubmit={join}><label>YOUR NAME<input value={name} maxLength={24} onChange={(event) => setName(event.target.value)} /></label><label>ROOM<input value={roomId} maxLength={64} onChange={(event) => setRoomId(event.target.value)} /></label><button type="submit">Join room <span>↗</span></button></form>
+      </section>
+      <section className="workspace">
+        <div className="canvas-wrap"><canvas ref={canvasRef} onPointerMove={move} onClick={reactAt} aria-label="Shared cursor canvas" /><div className="canvas-note"><span>Move your cursor through the room</span><span>Click to send a reaction</span></div></div>
+        <aside className="presence">
+          <div className="presence-head"><div><p className="eyebrow">IN THE ROOM</p><h2>{online} <span>connected</span></h2></div><span className="count">{peers.length.toString().padStart(2, "0")}</span></div>
+          <div className="peer-list">{peers.map((peer) => <div className="peer" key={peer.slot}><span className={peer.online ? "presence-dot" : "presence-dot away"}></span><span className="peer-name">{peer.name}{peer.clientId === storedId ? " (you)" : ""}</span><span className="peer-state">{peer.online ? "LIVE" : "AWAY"}</span></div>)}</div>
+          <div className="reaction-panel"><p className="eyebrow">SEND A SIGNAL</p><div className="reaction-grid">{REACTION_KINDS.map((kind, index) => <button type="button" className={selectedReaction === index ? "reaction selected" : "reaction"} key={kind} onClick={() => chooseReaction(index)} aria-label={kind} title={kind}><svg viewBox="0 0 24 24"><path d={reactionIcons[kind]} /></svg></button>)}</div></div>
+          {error && <p className="error">{error}</p>}
+        </aside>
+      </section>
+      <footer><span>RAW WEBSOCKET SYNC</span><span>20 Hz state tick · buffered interpolation · reconnect grace</span></footer>
+    </main>
+  );
 }
