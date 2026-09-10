@@ -78,7 +78,7 @@ export class SyncConnection {
   sendReaction(x: number, y: number, kind: ReactionKindIndex): void {
     this.send({
       t: "reaction",
-      id: this.clientId + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7),
+      id: this.clientId.slice(0, 12) + "-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7),
       x: toFixed16(x),
       y: toFixed16(y),
       k: kind,
