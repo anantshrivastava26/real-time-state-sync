@@ -3,6 +3,7 @@ import {
   RENDER_DELAY_MAX_MS,
   RENDER_DELAY_MIN_MS,
   SAMPLE_BUFFER_SIZE,
+  TICK_MS,
 } from "../../shared/config";
 
 export interface PositionSample {
@@ -67,20 +68,35 @@ export class RemoteCursor {
 export class RenderClock {
   private delayMs = RENDER_DELAY_MIN_MS;
   private lastServerAt = 0;
+  private lastArrivalAt = 0;
+  private intervalEma = TICK_MS;
+  private jitterEma = 0;
 
+  /**
+   * Target delay is derived from smoothed interval/jitter estimates (EMA,
+   * not the raw per-tick sample) and `delayMs` eases toward that target
+   * rather than snapping to it. A single noisy arrival would otherwise move
+   * `renderAt` abruptly, which reads as the remote cursor jumping instead of
+   * gliding.
+   */
   observe(serverAt: number, arrivalAt: number): void {
     if (this.lastServerAt > 0) {
       const interval = serverAt - this.lastServerAt;
       if (interval > 0) {
-        const jitter = Math.abs((arrivalAt - this.lastArrivalAt) - interval);
-        this.delayMs = Math.max(RENDER_DELAY_MIN_MS, Math.min(RENDER_DELAY_MAX_MS, interval * 1.5 + jitter * 1.5));
+        const arrivalInterval = arrivalAt - this.lastArrivalAt;
+        const deviation = Math.abs(arrivalInterval - interval);
+        this.intervalEma += (interval - this.intervalEma) / 8;
+        this.jitterEma += (deviation - this.jitterEma) / 8;
+        const target = Math.max(
+          RENDER_DELAY_MIN_MS,
+          Math.min(RENDER_DELAY_MAX_MS, this.intervalEma * 1.5 + this.jitterEma * 1.5),
+        );
+        this.delayMs += (target - this.delayMs) / 4;
       }
     }
     this.lastServerAt = serverAt;
     this.lastArrivalAt = arrivalAt;
   }
-
-  private lastArrivalAt = 0;
 
   get renderAt(): number {
     return Date.now() - this.delayMs;
