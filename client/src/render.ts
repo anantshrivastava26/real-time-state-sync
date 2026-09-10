@@ -20,6 +20,8 @@ export class SyncRenderer {
   constructor(private readonly canvas: HTMLCanvasElement) {}
 
   setPresence(peers: PeerInfo[], ownSlot: Slot): void { this.peers = new Map(peers.map((peer) => [peer.slot, peer])); this.ownSlot = ownSlot; }
+  upsertPeer(peer: PeerInfo): void { this.peers.set(peer.slot, peer); }
+  setPeerOnline(slot: Slot, online: boolean): void { const peer = this.peers.get(slot); if (peer) this.peers.set(slot, { ...peer, online }); }
   remove(slot: Slot): void { this.cursors.delete(slot); this.peers.delete(slot); }
 
   handle(message: ServerMessage): void {

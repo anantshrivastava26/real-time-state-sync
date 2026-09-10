@@ -39,6 +39,15 @@ import type { WsConnection } from "./ws/connection";
 /** Number of distinct cursor colours; the client maps the index to a palette. */
 const COLOR_COUNT = 12;
 
+/** Stable hash of a clientId into a palette index. */
+function hashToColor(clientId: string): number {
+  let hash = 0;
+  for (let i = 0; i < clientId.length; i++) {
+    hash = (hash * 31 + clientId.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % COLOR_COUNT;
+}
+
 export interface Peer {
   clientId: string;
   slot: Slot;
@@ -131,7 +140,7 @@ export class Room {
       clientId: hello.clientId,
       slot: this.allocateSlot(),
       name: hello.name,
-      color: this.allocateColor(),
+      color: this.allocateColor(hello.clientId),
       conn,
       lastSeq: 0,
       x: 0.5,
@@ -160,11 +169,22 @@ export class Room {
     return 0;
   }
 
-  private allocateColor(): number {
+  /**
+   * Deterministic per-identity, not occupancy-order: a clientId's preferred
+   * colour is a hash of itself, so the same person gets the same colour back
+   * after a dropped connection or a rejoin, not just whatever slot was free.
+   * Only falls back to the nearest free colour if that one is already taken
+   * by someone else currently in the room.
+   */
+  private allocateColor(clientId: string): number {
     const used = new Set<number>();
     for (const peer of this.peers.values()) used.add(peer.color);
-    for (let i = 0; i < COLOR_COUNT; i++) if (!used.has(i)) return i;
-    return this.peers.size % COLOR_COUNT;
+    const preferred = hashToColor(clientId);
+    for (let i = 0; i < COLOR_COUNT; i++) {
+      const candidate = (preferred + i) % COLOR_COUNT;
+      if (!used.has(candidate)) return candidate;
+    }
+    return preferred;
   }
 
   /**
