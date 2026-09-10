@@ -17,6 +17,7 @@ export function App() {
   const [name, setName] = useState(() => localStorage.getItem("pulse-name") || "Guest");
   const [roomId, setRoomId] = useState(roomFromUrl);
   const [status, setStatus] = useState("connecting");
+  const [network, setNetwork] = useState({ rtt: 0, jitter: 0 });
   const [peers, setPeers] = useState<PeerInfo[]>([]);
   const [selectedReaction, setSelectedReaction] = useState(0);
   const [error, setError] = useState("");
@@ -28,6 +29,7 @@ export function App() {
     const connection = new SyncConnection(roomId, storedId, name); connectionRef.current = connection;
     const offStatus = connection.on("status", setStatus);
     const offError = connection.on("error", setError);
+    const offNetwork = connection.on("network", setNetwork);
     const offMessage = connection.on("message", (message: ServerMessage) => {
       if (message.t === "welcome") { renderer.setPresence(message.peers, message.slot); setPeers(message.peers); }
       if (message.t === "join") { setPeers((current) => [...current.filter((peer) => peer.slot !== message.peer.slot), message.peer]); }
@@ -36,7 +38,7 @@ export function App() {
       renderer.handle(message);
     });
     connection.connect();
-    return () => { offStatus(); offError(); offMessage(); connection.close(); connectionRef.current = null; rendererRef.current = null; };
+    return () => { offStatus(); offError(); offNetwork(); offMessage(); connection.close(); connectionRef.current = null; rendererRef.current = null; setNetwork({ rtt: 0, jitter: 0 }); };
   }, [roomId]);
 
   function join(event: React.FormEvent) { event.preventDefault(); localStorage.setItem("pulse-name", name.trim() || "Guest"); setRoomId(roomId.trim() || "watch-party-42"); }
@@ -52,6 +54,7 @@ export function App() {
       <header className="topbar">
         <div className="brand"><span className="brand-mark">+</span><span>pulse room</span></div>
         <div className="room-chip"><span className={status === "connected" ? "live-dot" : "live-dot muted"}></span>{status}<strong>/{roomId}</strong></div>
+        {status === "connected" && <div className="net-chip" title="Application-level round trip time to the server, and its jitter (smoothed)">RTT {network.rtt}ms <span>·</span> jitter {network.jitter}ms</div>}
       </header>
       <section className="intro">
         <div><p className="eyebrow">LIVE SHARED SPACE</p><h1>Move together.<br /><em>Feel the room.</em></h1><p className="lede">A tiny, honest multiplayer canvas for the moments that happen between the big ones.</p></div>

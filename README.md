@@ -34,6 +34,12 @@ Remote cursor samples are kept in a bounded 24-sample buffer. Rendering is norma
 
 The tradeoff is intentional: about 75-150 ms of visual delay buys stable motion under ordinary jitter. Cursor transport itself remains lossy and current-value-only, so a congested client does not create an unbounded server queue.
 
+## Latency visibility
+
+The client already sends an application-level `ping{c}` every second and the server echoes it back as `pong{c,ts}` off the tick, purely so RTT can be measured; nothing used the reply before. It now does: `connection.ts` turns each pong into a round trip sample (`now - c`, no clock sync required) and folds it into two exponential moving averages -- RTT and mean absolute jitter -- with no history buffer. The topbar shows the live numbers while connected. This is self-only: it reports this client's RTT to the server, not other peers' RTT to each other, since the server never relays it and this room has no peer-to-peer path to measure directly. Broadcasting everyone's RTT to everyone was considered and skipped -- it needs a new message type and a periodic broadcast, and it exposes each viewer's network quality to every other viewer for a bonus readout, which is a worse trade than it looks.
+
+Adaptive throttling of the cursor send rate from this same RTT signal was also considered and skipped. Cursor packets are already small and capped at 30 Hz, so the payoff is marginal at the 3-10 client scale this assignment targets, and a server-side version would mean per-recipient decimation instead of the current single-encode, write-to-every-socket tick -- more moving parts for a control loop that also has to be damped against oscillation.
+
 ## Failure handling and limitations
 
 The server sends protocol ping frames every 5 seconds and closes silent connections after 12 seconds. A dropped peer becomes `AWAY` immediately and its slot is retained for 5 seconds; reconnecting with the same client ID resumes that slot and cursor state. A clean leave removes it immediately. The client reconnects with exponential backoff.

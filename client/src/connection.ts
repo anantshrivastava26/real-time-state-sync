@@ -19,10 +19,17 @@ import type {
 } from "../../shared/protocol";
 
 export type ConnectionStatus = "connecting" | "connected" | "reconnecting";
+export interface NetworkStats {
+  /** Smoothed application-level round trip time, in ms. */
+  rtt: number;
+  /** Smoothed mean absolute deviation of RTT samples, in ms. */
+  jitter: number;
+}
 export interface SyncEventMap {
   message: (message: ServerMessage) => void;
   status: (status: ConnectionStatus) => void;
   error: (message: string) => void;
+  network: (stats: NetworkStats) => void;
 }
 
 type ListenerMap = { [K in keyof SyncEventMap]: Set<SyncEventMap[K]> };
@@ -38,10 +45,13 @@ export class SyncConnection {
   private lastX = -1;
   private lastY = -1;
   private pendingCursor: { x: number; y: number } | null = null;
+  private rttEma = 0;
+  private jitterEma = 0;
   private readonly listeners: ListenerMap = {
     message: new Set(),
     status: new Set(),
     error: new Set(),
+    network: new Set(),
   };
 
   constructor(
@@ -124,7 +134,25 @@ export class SyncConnection {
       this.emit("error", "Rejected server message: " + parsed.reason);
       return;
     }
+    if (parsed.value.t === "pong") this.observeRtt(parsed.value.c);
     this.emit("message", parsed.value);
+  }
+
+  /**
+   * `c` is the local timestamp the ping carried, echoed verbatim, so
+   * `now - c` is a clean round trip with no clock-sync assumptions. Both RTT
+   * and jitter are exponential moving averages: cheap, O(1) memory, and no
+   * history buffer to bound.
+   */
+  private observeRtt(pingSentAt: number): void {
+    const sample = Date.now() - pingSentAt;
+    if (this.rttEma === 0) {
+      this.rttEma = sample;
+    } else {
+      this.jitterEma += (Math.abs(sample - this.rttEma) - this.jitterEma) / 4;
+      this.rttEma += (sample - this.rttEma) / 4;
+    }
+    this.emit("network", { rtt: Math.round(this.rttEma), jitter: Math.round(this.jitterEma) });
   }
 
   private flushCursor(): void {

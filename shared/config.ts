@@ -10,9 +10,8 @@
 export const TICK_HZ = 20;
 export const TICK_MS = 1000 / TICK_HZ;
 
-/** Client cursor sampling rate ceiling (adaptive; see `AdaptiveSendRate`). */
+/** Client cursor sampling rate ceiling. */
 export const CURSOR_SEND_HZ_MAX = 30;
-export const CURSOR_SEND_HZ_MIN = 10;
 
 /**
  * Minimum normalized movement before a cursor sample is worth a packet.

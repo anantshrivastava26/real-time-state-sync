@@ -26,7 +26,7 @@ The transport layer knows bytes, masking, fragmentation, ping/pong, close, rate 
 - `state`: server tick with `k`, timestamp, and changed `[slot, x, y]` tuples.
 - `reaction`: immediate discrete action with normalized position and a closed reaction-kind index.
 - `combo`: server resolution when reactions land within 50 ms and 5% normalized distance.
-- `ping` / `pong`: application RTT measurement; protocol WebSocket ping/pong separately supplies liveness.
+- `ping` / `pong`: application RTT measurement, sampled into an RTT/jitter EMA and shown in the topbar; protocol WebSocket ping/pong separately supplies liveness.
 - `error`: rejected input is explicit rather than silently ignored.
 
 ## Ordering and reconnect
