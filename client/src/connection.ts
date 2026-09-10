@@ -104,9 +104,14 @@ export class SyncConnection {
     if (this.closed) return;
     this.emit("status", this.retry === 0 ? "connecting" : "reconnecting");
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const endpoint = window.location.port === "5173"
-      ? protocol + "//127.0.0.1:8787/ws"
-      : protocol + "//" + window.location.host + "/ws";
+    // VITE_WS_URL covers deployments where the client (e.g. Vercel) and server
+    // (e.g. Railway) are not the same host; unset, the client and server are
+    // assumed to be one process, as in the single-process production build.
+    const endpoint = import.meta.env.VITE_WS_URL
+      ? import.meta.env.VITE_WS_URL
+      : window.location.port === "5173"
+        ? protocol + "//127.0.0.1:8787/ws"
+        : protocol + "//" + window.location.host + "/ws";
     this.socket = new WebSocket(endpoint);
     this.socket.addEventListener("open", () => {
       this.retry = 0;
