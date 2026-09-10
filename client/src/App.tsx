@@ -3,7 +3,7 @@ import { REACTION_KINDS, reactionKindFromIndex } from "../../shared/protocol";
 import type { PeerInfo, ServerMessage } from "../../shared/protocol";
 import { SyncConnection } from "./connection";
 import { reactionIcons } from "./icons";
-import { SyncRenderer } from "./render";
+import { colorForPeer, SyncRenderer } from "./render";
 
 const roomFromUrl = new URLSearchParams(window.location.search).get("room") || "watch-party-42";
 const storedId = sessionStorage.getItem("pulse-client-id") || crypto.randomUUID();
@@ -24,6 +24,7 @@ export function App() {
   useEffect(() => {
     if (!canvasRef.current) return;
     const renderer = new SyncRenderer(canvasRef.current); rendererRef.current = renderer; renderer.draw(performance.now());
+    if (!roomId) return () => { rendererRef.current = null; };
     const connection = new SyncConnection(roomId, storedId, name); connectionRef.current = connection;
     const offStatus = connection.on("status", setStatus);
     const offError = connection.on("error", setError);
@@ -35,11 +36,12 @@ export function App() {
       renderer.handle(message);
     });
     connection.connect();
-    return () => { offStatus(); offError(); offMessage(); connection.close(); rendererRef.current = null; };
+    return () => { offStatus(); offError(); offMessage(); connection.close(); connectionRef.current = null; rendererRef.current = null; };
   }, [roomId]);
 
   function join(event: React.FormEvent) { event.preventDefault(); localStorage.setItem("pulse-name", name.trim() || "Guest"); setRoomId(roomId.trim() || "watch-party-42"); }
-  function sendReaction(x: number, y: number, kindIndex: number) { const kind = reactionKindFromIndex(kindIndex); const id = storedId + "-local-" + Date.now(); rendererRef.current?.addLocalBurst(id, x, y, kind, "#ffbd59"); connectionRef.current?.sendReaction(x, y, kindIndex); }
+  function leave() { connectionRef.current?.leave(); connectionRef.current = null; setPeers([]); setRoomId(""); }
+  function sendReaction(x: number, y: number, kindIndex: number) { const kind = reactionKindFromIndex(kindIndex); const id = storedId + "-local-" + Date.now(); const ownPeer = peers.find((peer) => peer.clientId === storedId); rendererRef.current?.addLocalBurst(id, x, y, kind, ownPeer ? colorForPeer(ownPeer) : "#ffbd59"); connectionRef.current?.sendReaction(x, y, kindIndex); }
   function move(event: React.PointerEvent<HTMLCanvasElement>) { const rect = event.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)); pointerRef.current = { x, y }; connectionRef.current?.sendCursor(x, y); }
   function reactAt(event: React.MouseEvent<HTMLCanvasElement>) { const rect = event.currentTarget.getBoundingClientRect(); const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)); pointerRef.current = { x, y }; sendReaction(x, y, selectedReaction); }
   function chooseReaction(index: number) { setSelectedReaction(index); sendReaction(pointerRef.current.x, pointerRef.current.y, index); }
@@ -59,8 +61,9 @@ export function App() {
         <div className="canvas-wrap"><canvas ref={canvasRef} onPointerMove={move} onClick={reactAt} aria-label="Shared cursor canvas" /><div className="canvas-note"><span>Move your cursor through the room</span><span>Click to send a reaction</span></div></div>
         <aside className="presence">
           <div className="presence-head"><div><p className="eyebrow">IN THE ROOM</p><h2>{online} <span>connected</span></h2></div><span className="count">{peers.length.toString().padStart(2, "0")}</span></div>
-          <div className="peer-list">{peers.map((peer) => <div className="peer" key={peer.slot}><span className={peer.online ? "presence-dot" : "presence-dot away"}></span><span className="peer-name">{peer.name}{peer.clientId === storedId ? " (you)" : ""}</span><span className="peer-state">{peer.online ? "LIVE" : "AWAY"}</span></div>)}</div>
+          <div className="peer-list">{peers.map((peer) => <div className="peer" key={peer.slot}><span className={peer.online ? "presence-dot" : "presence-dot away"} style={{ backgroundColor: colorForPeer(peer) }}></span><span className="peer-name">{peer.name}{peer.clientId === storedId ? " (you)" : ""}</span><span className="peer-state">{peer.online ? "LIVE" : "AWAY"}</span></div>)}</div>
           <div className="reaction-panel"><p className="eyebrow">SEND A SIGNAL</p><div className="reaction-grid">{REACTION_KINDS.map((kind, index) => <button type="button" className={selectedReaction === index ? "reaction selected" : "reaction"} key={kind} onClick={() => chooseReaction(index)} aria-label={kind} title={kind}><svg viewBox="0 0 24 24"><path d={reactionIcons[kind]} /></svg></button>)}</div></div>
+          {roomId && <button type="button" className="leave-button" style={{ width: "100%", marginTop: 22, padding: "11px 14px", border: "1px solid var(--line)", background: "transparent", color: "var(--muted)", font: "11px 'DM Mono', monospace", letterSpacing: ".1em", textTransform: "uppercase", cursor: "pointer" }} onClick={leave}>Exit watch party</button>}
           {error && <p className="error">{error}</p>}
         </aside>
       </section>

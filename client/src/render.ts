@@ -4,7 +4,11 @@ import { RemoteCursor, RenderClock } from "./interpolation";
 import { reactionIcons } from "./icons";
 
 export interface Burst { id: string; x: number; y: number; kind: string; born: number; count: number; color: string; }
-const colors = ["#ff6b5e", "#ffbd59", "#6dd6a4", "#5dc8ff", "#b58cff", "#f184c5", "#e6e96b", "#79a7ff", "#ff936e", "#6ce0d0", "#d9a4ff", "#a9d36e"];
+export const colors = ["#ff6b5e", "#ffbd59", "#6dd6a4", "#5dc8ff", "#b58cff", "#f184c5", "#e6e96b", "#79a7ff", "#ff936e", "#6ce0d0", "#d9a4ff", "#a9d36e"];
+
+export function colorForPeer(peer: PeerInfo): string {
+  return colors[peer.color % colors.length] as string;
+}
 
 export class SyncRenderer {
   private readonly cursors = new Map<Slot, RemoteCursor>();
@@ -30,7 +34,7 @@ export class SyncRenderer {
       }
     } else if (message.t === "reaction") {
       const peer = this.peers.get(message.s);
-      this.addBurst(message.id, fromFixed16(message.x), fromFixed16(message.y), reactionKindFromIndex(message.k), peer ? colors[peer.color % colors.length] as string : colors[0] as string);
+      this.addBurst(message.id, fromFixed16(message.x), fromFixed16(message.y), reactionKindFromIndex(message.k), peer ? colorForPeer(peer) : colors[0] as string);
     } else if (message.t === "combo") {
       const burst = this.bursts.get(message.id); if (burst) burst.count = message.n;
     }
@@ -51,7 +55,7 @@ export class SyncRenderer {
     for (const [slot, cursor] of this.cursors) {
       const position = cursor.sample(this.clock.renderAt); const peer = this.peers.get(slot);
       if (!position || !peer) continue;
-      const x = position.x * width; const y = position.y * height; const color = colors[peer.color % colors.length] as string;
+      const x = position.x * width; const y = position.y * height; const color = colorForPeer(peer);
       ctx.save(); ctx.translate(x, y); ctx.shadowColor = color; ctx.shadowBlur = 16; ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 22); ctx.lineTo(7, 17); ctx.lineTo(12, 28); ctx.lineTo(16, 26); ctx.lineTo(11, 15); ctx.lineTo(20, 15); ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; ctx.font = "600 12px ui-sans-serif"; ctx.fillStyle = "#f4f1ea"; ctx.fillText(peer.name, 24, 14); ctx.restore();
     }
     for (const [id, burst] of this.bursts) {

@@ -69,6 +69,11 @@ export class SyncConnection {
     this.socket = null;
   }
 
+  leave(): void {
+    this.send({ t: "bye" });
+    this.close();
+  }
+
   sendCursor(x: number, y: number): void {
     if (Math.abs(x - this.lastX) < CURSOR_MOVE_EPSILON && Math.abs(y - this.lastY) < CURSOR_MOVE_EPSILON) return;
     this.pendingCursor = { x, y };
