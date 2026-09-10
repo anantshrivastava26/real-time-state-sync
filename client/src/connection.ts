@@ -89,8 +89,7 @@ export class SyncConnection {
     if (this.closed) return;
     this.emit("status", this.retry === 0 ? "connecting" : "reconnecting");
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const host = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" ? window.location.host : window.location.host;
-    this.socket = new WebSocket(protocol + "//" + host + "/ws");
+    this.socket = new WebSocket(protocol + "//" + window.location.host + "/ws");
     this.socket.addEventListener("open", () => {
       this.retry = 0;
       this.emit("status", "connected");

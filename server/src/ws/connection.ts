@@ -131,6 +131,9 @@ export class WsConnection {
   }
 
   private handleControlFrame(opcode: number, data: Buffer): void {
+    // Control traffic is proof that the peer is alive too. Without this update
+    // an idle but healthy client would be declared stale after 12 seconds.
+    this.lastActivityAt = Date.now();
     if (opcode === OPCODE.ping) {
       this.writeFrame(encodeFrame(OPCODE.pong, data));
       return;
