@@ -47,6 +47,15 @@ export function App() {
     return () => { offStatus(); offError(); offNetwork(); offMessage(); connection.close(); connectionRef.current = null; renderer.stop(); rendererRef.current = null; setNetwork({ rtt: 0, jitter: 0 }); };
   }, [roomId, hasJoined]);
 
+  // Transient errors (a rejected message, a copy failure) self-clear so the
+  // toast does not become a permanent fixture; the connection banner below
+  // is driven by `status` instead and stays up for as long as it's true.
+  useEffect(() => {
+    if (!error) return;
+    const timer = window.setTimeout(() => setError(""), 6000);
+    return () => window.clearTimeout(timer);
+  }, [error]);
+
   function join(event: React.FormEvent) {
     event.preventDefault();
     const trimmed = roomId.trim();
@@ -98,7 +107,7 @@ export function App() {
           <section className="intro">
             <div className="intro-copy">
               <p className="eyebrow">Live shared space</p>
-              <h1>Move together.<br /><em>Feel the room.</em></h1>
+              <h1>Watch together.<br /><em>Stay in sync.</em></h1>
               <p className="lede">A tiny, honest multiplayer canvas for the moments that happen between the big ones. Raw WebSockets, no sync library.</p>
               <ul className="facts">
                 <li><strong>20 Hz</strong><span>state tick</span></li>
@@ -144,12 +153,25 @@ export function App() {
                 <div className="reaction-grid">{REACTION_KINDS.map((kind, index) => <button type="button" className={selectedReaction === index ? "reaction selected" : "reaction"} key={kind} onClick={() => chooseReaction(index)} aria-label={kind} aria-pressed={selectedReaction === index} title={kind}><svg viewBox="0 0 24 24"><path d={reactionIcons[kind]} /></svg></button>)}</div>
               </div>
               <button type="button" className="leave-button" onClick={leave}>Exit watch party</button>
-              {error && <p className="error">{error}</p>}
             </aside>
           </section>
         )}
-        <footer><span>Raw WebSocket sync</span><span>20 Hz state tick · buffered interpolation · reconnect grace</span></footer>
+        <footer><span>Raw WebSocket sync</span><span>20 Hz state tick · buffered interpolation</span></footer>
       </main>
+      {hasJoined && status !== "connected" && (
+        <div className={status === "reconnecting" ? "connection-banner is-lost" : "connection-banner"} role="status" aria-live="polite">
+          <span className="connection-dot" />
+          {status === "reconnecting" ? "Connection lost — reconnecting…" : "Connecting to the room…"}
+        </div>
+      )}
+      {error && (
+        <div className="toast-stack">
+          <div className="toast" role="alert">
+            <div className="toast-body"><strong>Connection issue</strong>{error}</div>
+            <button type="button" className="toast-dismiss" onClick={() => setError("")} aria-label="Dismiss">×</button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
